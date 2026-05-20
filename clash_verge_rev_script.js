@@ -21,9 +21,11 @@ const autoSelectTolerance = 40;
 // 是否在 Clash 界面中隐藏地区自动选择分组（🇯🇵 日本自动、🇹🇼 台湾自动、🇺🇸 美国自动）
 const autoSelectHidden = true;  // true = 隐藏，false = 显示   隐藏/显示自动选择分组
 // 自动选择节点的测速 URL
-const autoSelectUrl = "https://www.google.com/generate_204";  // 可自定义测速地址
+const autoSelectUrl = "http://www.gstatic.com/generate_204";  // 使用 HTTP 204 地址，减少 TLS 握手对超时判定的干扰
 // 是否启用懒测速（true：只有该分组被使用时才测速；false：后台一直测速）
 const autoSelectLazy = false;  // 默认 true，节省资源
+// 自动测速期望返回状态码，显式固定后可避免内核采用默认值
+const autoSelectExpectedStatus = 204;
 // 低倍率节点匹配关键词，可按你的机场命名习惯自行增删
 const lowRatioKeywords = "[⁰¹²³⁴⁵⁶⁷⁸⁹˙.]+ˣ";
 const japanKeywords = "日本|Japan|JP|JAPAN|🇯🇵";
@@ -306,6 +308,7 @@ const customDomainSuffix = {
     // "twitter.com",
   ],
   "AI": [
+    "trae.ai",
     // "gemini.google.com",
   ],
   "微软服务": [
@@ -353,6 +356,7 @@ function buildCustomRules() {
 
 const baseRules = [
   // 自定义规则（Google 相关规则尽量细分，避免过早落到“节点选择”）
+  "DOMAIN,trae-api-sg.mchost.guru,AI",
   "IP-CIDR,152.69.184.104/32,全局直连,no-resolve",
   "DOMAIN-SUFFIX,googleapis.cn,全局直连",
   "DOMAIN-SUFFIX,gstatic.com,谷歌服务",
@@ -403,18 +407,19 @@ const baseRules = [
 const groupBaseOption = {
   interval: 300,
   timeout: 2000,
-  url: "https://www.google.com/generate_204",
+  url: "http://www.gstatic.com/generate_204",
   lazy: true,
   "max-failed-times": 2,
   hidden: false
 };
 
-// 自动选择节点配置（根据用户设置）
+// 自动选择节点测速配置（唯一超时来源）
 const autoSelectOption = {
   interval: autoSelectInterval,
   timeout: autoSelectTimeout,
   tolerance: autoSelectTolerance,  // 添加容差参数
   url: autoSelectUrl,
+  "expected-status": autoSelectExpectedStatus,
   lazy: autoSelectLazy, // 引入新增的懒测速配置变量
   "max-failed-times": 1,  // 改为 1 次，一旦失败立即切换
   hidden: autoSelectHidden  // 使用用户配置的 hidden 选项
