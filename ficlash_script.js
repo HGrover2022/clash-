@@ -19,18 +19,19 @@ const nodeFilterRules = [
 const enableAutoSelect = true;
 // const enableAutoSelect = false; // 取消注释这行来禁用自动选择
 const autoSelectInterval = 300;
-const autoSelectTimeout = 2000;
-const autoSelectTolerance = 35;
+const autoSelectTimeout = 1500;
+const autoSelectTolerance = 40;
 const autoSelectHidden = true;
 const autoSelectUrl = "https://www.google.com/generate_204";
+const autoSelectLazy = false;
 
 // 低倍率节点匹配关键词，可按你的机场命名习惯自行增删
 const lowRatioKeywords = "[⁰¹²³⁴⁵⁶⁷⁸⁹˙.]+ˣ";
 const japanKeywords = "日本|Japan|JP|JAPAN|🇯🇵";
 
 // 构建最终的过滤正则（排除官网/套餐等 + 用户自定义排除）
-function buildFilterRegex() {
-  const baseExclude = "官网|套餐|流量|异常|剩余";
+function buildExcludeFilterRegex() {
+  const baseExclude = "(?i)官网|套餐|流量|异常|剩余|到期";
   const userExclude = nodeFilterRules
     .filter(function(rule) {
       return rule && rule.trim() && !rule.trim().startsWith("//");
@@ -38,10 +39,10 @@ function buildFilterRegex() {
     .join("|");
 
   if (userExclude) {
-    return "^(?!.*(" + baseExclude + "|" + userExclude + ")).*$";
+    return baseExclude + "|" + userExclude;
   }
 
-  return "^(?!.*(" + baseExclude + ")).*$";
+  return baseExclude;
 }
 
 // ===================== DNS 防泄露 =====================
@@ -372,12 +373,12 @@ const autoSelectOption = {
   timeout: autoSelectTimeout,
   tolerance: autoSelectTolerance,
   url: autoSelectUrl,
-  lazy: true,
+  lazy: autoSelectLazy,
   "max-failed-times": 1,
   hidden: autoSelectHidden,
 };
 
-function createRegionAutoGroups() {
+function createRegionAutoGroups(dynamicExcludeFilter) {
   if (!enableAutoSelect) {
     return [];
   }
@@ -388,7 +389,8 @@ function createRegionAutoGroups() {
       name: "🇯🇵 日本自动",
       type: "url-test",
       "include-all": true,
-      filter: japanKeywords,
+      filter: "(?i)" + japanKeywords,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/adjust.svg",
     },
     {
@@ -396,7 +398,8 @@ function createRegionAutoGroups() {
       name: "🎃 低倍率自动",
       type: "url-test",
       "include-all": true,
-      filter: lowRatioKeywords,
+      filter: "(?i)" + lowRatioKeywords,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/adjust.svg",
     },
     {
@@ -404,7 +407,8 @@ function createRegionAutoGroups() {
       name: "🇹🇼 台湾自动",
       type: "url-test",
       "include-all": true,
-      filter: "台湾|日月潭|TW|tw|Taiwan",
+      filter: "(?i)台湾|日月潭|tw|taiwan",
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/adjust.svg",
     },
     {
@@ -412,7 +416,8 @@ function createRegionAutoGroups() {
       name: "🇺🇸 美国自动",
       type: "url-test",
       "include-all": true,
-      filter: "美国|US|us|美利坚|🇺🇸",
+      filter: "(?i)美国|us|america|🇺🇸",
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/flags/us.svg",
     },
   ];
@@ -446,8 +451,8 @@ function main(config) {
 
   config.dns = dnsConfig;
 
-  const dynamicFilter = buildFilterRegex();
-  const regionAutoGroups = createRegionAutoGroups();
+  const dynamicExcludeFilter = buildExcludeFilterRegex();
+  const regionAutoGroups = createRegionAutoGroups(dynamicExcludeFilter);
   const autoSelectProxies = enableAutoSelect
     ? ["🇯🇵 日本自动", "🇹🇼 台湾自动", "🇺🇸 美国自动", "🎃 低倍率自动"]
     : [];
@@ -459,7 +464,7 @@ function main(config) {
       type: "select",
       proxies: ["🇹🇼 台湾自动", "🇯🇵 日本自动", "🇺🇸 美国自动", "🎃 低倍率自动", "socks5"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/adjust.svg",
     },
     {
@@ -468,7 +473,7 @@ function main(config) {
       type: "select",
       proxies: ["节点选择"].concat(autoSelectProxies, ["socks5", "全局直连"]),
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/google.svg",
     },
     {
@@ -477,7 +482,7 @@ function main(config) {
       type: "select",
       proxies: ["🎃 低倍率自动", "节点选择", "🇯🇵 日本自动", "🇹🇼 台湾自动", "🇺🇸 美国自动", "socks5", "全局直连"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/youtube.svg",
     },
     {
@@ -486,7 +491,7 @@ function main(config) {
       type: "select",
       proxies: ["🇯🇵 日本自动", "节点选择", "🇹🇼 台湾自动", "🇺🇸 美国自动", "🎃 低倍率自动", "socks5", "全局直连"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/telegram.svg",
     },
     {
@@ -495,7 +500,7 @@ function main(config) {
       type: "select",
       proxies: ["节点选择"].concat(autoSelectProxies, ["socks5"]),
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/chatgpt.svg",
     },
     {
@@ -504,7 +509,7 @@ function main(config) {
       type: "select",
       proxies: ["全局直连", "节点选择"].concat(autoSelectProxies, ["socks5"]),
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/microsoft.svg",
     },
     {
@@ -513,7 +518,7 @@ function main(config) {
       type: "select",
       proxies: ["节点选择"].concat(autoSelectProxies, ["socks5", "全局直连"]),
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Apple_logo_white.svg/960px-Apple_logo_white.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     },
     {
@@ -522,7 +527,8 @@ function main(config) {
       type: "select",
       proxies: ["🎃 低倍率自动", "节点选择", "🇹🇼 台湾自动", "🇯🇵 日本自动", "🇺🇸 美国自动", "socks5"],
       "include-all": true,
-      filter: "台|tw|TW|日月潭",
+      filter: "(?i)台|tw|日月潭",
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/xiaolin-007/clash@main/icon/Bahamut.svg",
     },
     {
@@ -531,7 +537,7 @@ function main(config) {
       type: "select",
       proxies: ["🎃 低倍率自动", "全局直连", "节点选择", "🇯🇵 日本自动", "🇹🇼 台湾自动", "🇺🇸 美国自动", "socks5"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/xiaolin-007/clash@main/icon/bilibili.svg",
     },
     {
@@ -540,7 +546,7 @@ function main(config) {
       type: "select",
       proxies: ["🇯🇵 日本自动", "节点选择", "🇹🇼 台湾自动", "🇺🇸 美国自动", "🎃 低倍率自动", "socks5", "全局直连"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/xiaolin-007/clash@main/icon/spotify.svg",
     },
     {
@@ -549,7 +555,7 @@ function main(config) {
       type: "select",
       proxies: ["🎃 低倍率自动", "全局直连", "节点选择", "🇯🇵 日本自动", "🇹🇼 台湾自动", "🇺🇸 美国自动", "socks5"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/Koolson/Qure/IconSet/Color/Steam.png",
     },
     {
@@ -565,7 +571,7 @@ function main(config) {
       type: "select",
       proxies: ["DIRECT", "节点选择"],
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/link.svg",
     },
     {
@@ -581,7 +587,7 @@ function main(config) {
       type: "select",
       proxies: ["节点选择"].concat(autoSelectProxies, ["socks5", "全局直连"]),
       "include-all": true,
-      filter: dynamicFilter,
+      "exclude-filter": dynamicExcludeFilter,
       icon: "https://fastly.jsdelivr.net/gh/clash-verge-rev/clash-verge-rev.github.io@main/docs/assets/icons/fish.svg",
     },
   ];
@@ -605,7 +611,7 @@ function main(config) {
     type: "select",
     proxies: allProxies,
     "include-all": true,
-    filter: dynamicFilter,
+    "exclude-filter": dynamicExcludeFilter,
   });
 
   config.proxies.push({
